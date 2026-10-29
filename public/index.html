@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vorlesungs-Bingo</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+</head>
+<body>
+  <header>
+    <a href="/" class="logo">🎯 Vorlesungs-Bingo</a>
+    <nav>
+      <button class="link" data-goto="home">Spielen</button>
+      <button class="link" data-goto="teachers">Lehrer verwalten</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Startseite -->
+    <section id="view-home" class="view">
+      <div class="card">
+        <label>Dein Name
+          <input id="name" maxlength="24" placeholder="z. B. Lena" autocomplete="nickname">
+        </label>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h2>Lobby erstellen</h2>
+          <label>Lehrer
+            <select id="create-teacher"></select>
+          </label>
+          <label>Feldgröße
+            <select id="create-size">
+              <option value="3">3 × 3</option>
+              <option value="4">4 × 4</option>
+              <option value="5" selected>5 × 5</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="create-free" checked> Freies Feld in der Mitte</label>
+          <button id="btn-create" class="primary">Lobby erstellen</button>
+        </div>
+
+        <div class="card">
+          <h2>Lobby beitreten</h2>
+          <label>Lobby-Code
+            <input id="join-code" maxlength="5" placeholder="ABCDE" autocapitalize="characters">
+          </label>
+          <button id="btn-join" class="primary">Beitreten</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lehrer verwalten -->
+    <section id="view-teachers" class="view" hidden>
+      <div class="card">
+        <h2>Lehrer verwalten</h2>
+        <p class="muted">Hier legst du Lehrer und ihre Standard-Felder an. Sie stehen dann in jeder neuen Lobby zur Verfügung.</p>
+        <form id="form-teacher" class="row">
+          <input id="teacher-name" maxlength="40" placeholder="Name des Lehrers" required>
+          <button class="primary">Hinzufügen</button>
+        </form>
+      </div>
+      <div id="teacher-list"></div>
+    </section>
+
+    <!-- Lobby: Felder sammeln und abstimmen -->
+    <section id="view-setup" class="view" hidden>
+      <div class="card lobby-head">
+        <div>
+          <div class="muted">Lobby-Code</div>
+          <div class="code" id="setup-code"></div>
+          <div class="muted" id="setup-teacher"></div>
+        </div>
+        <div class="head-actions">
+          <button id="btn-copy">🔗 Einladungslink kopieren</button>
+          <button class="leave">Verlassen</button>
+        </div>
+      </div>
+
+      <div class="grid2 wide-left">
+        <div class="card">
+          <h2>Felder <span class="badge" id="field-count"></span></h2>
+          <p class="muted">Füge eigene Felder hinzu. Mit 👎 stimmst du für das Entfernen –
+            ab <b id="votes-needed"></b> Stimme(n) fliegt das Feld raus.</p>
+          <form id="form-field" class="row">
+            <input id="field-text" maxlength="80" placeholder="z. B. Lehrer sagt „so zu sagen“">
+            <button class="primary">Hinzufügen</button>
+          </form>
+          <ul id="field-list" class="fields"></ul>
+        </div>
+
+        <div class="side">
+          <div class="card">
+            <h2>Spieler</h2>
+            <ul id="setup-players" class="players"></ul>
+          </div>
+          <div class="card" id="host-settings">
+            <h2>Einstellungen</h2>
+            <label>Feldgröße
+              <select id="set-size">
+                <option value="3">3 × 3</option>
+                <option value="4">4 × 4</option>
+                <option value="5">5 × 5</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" id="set-free"> Freies Feld in der Mitte</label>
+            <p class="muted" id="need-hint"></p>
+            <button id="btn-start" class="primary big">Spiel starten</button>
+          </div>
+          <div class="card" id="wait-host" hidden>
+            <p>⏳ Warte, bis der Host das Spiel startet …</p>
+            <p class="muted" id="need-hint-guest"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Spiel -->
+    <section id="view-game" class="view" hidden>
+      <div class="card lobby-head">
+        <div>
+          <div class="muted">Lobby <b id="game-code"></b> · <span id="game-teacher"></span></div>
+          <div class="muted">Runde <span id="game-round"></span></div>
+        </div>
+        <div class="head-actions">
+          <button id="btn-reset" hidden>Neue Runde</button>
+          <button class="leave">Verlassen</button>
+        </div>
+      </div>
+
+      <div class="grid2 wide-left">
+        <div>
+          <div id="board" class="board"></div>
+          <p class="muted center">Tippe ein Feld an, wenn es passiert. Die kleine Zahl zeigt, wie viele es schon abgehakt haben.</p>
+        </div>
+        <div class="side">
+          <div class="card">
+            <h2>🏆 Bingo</h2>
+            <ol id="winners" class="winners"></ol>
+            <p class="muted" id="no-winners">Noch hat niemand Bingo.</p>
+          </div>
+          <div class="card">
+            <h2>Spieler</h2>
+            <ul id="game-players" class="players"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="bingo-overlay" class="overlay" hidden>
+    <div class="overlay-box">
+      <div class="overlay-title">BINGO!</div>
+      <div id="bingo-text"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

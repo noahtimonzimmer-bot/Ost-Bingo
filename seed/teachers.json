@@ -1,0 +1,36 @@
+[
+  {
+    "id": "beispiel",
+    "name": "Beispiel-Dozent",
+    "phrases": [
+      "Sagt \"sozusagen\"",
+      "Sagt \"quasi\"",
+      "Zeigt einen Kartentrick",
+      "\"Das kommt in der Klausur dran\"",
+      "\"Gibt es dazu Fragen?\" – Stille",
+      "Technikprobleme mit dem Beamer",
+      "Mikrofon funktioniert nicht",
+      "Folie ist zu voll",
+      "\"Das habe ich letzte Woche schon gesagt\"",
+      "Erzählt eine Anekdote von früher",
+      "Überzieht die Vorlesung",
+      "Fängt zu spät an",
+      "Schreibt etwas Unleserliches an die Tafel",
+      "\"Das ist trivial\"",
+      "Handy klingelt im Hörsaal",
+      "\"Wie Sie sicher wissen …\"",
+      "Springt zehn Folien weiter",
+      "Verweist aufs Skript",
+      "Macht einen Witz, keiner lacht",
+      "Trinkt Kaffee während er redet",
+      "\"Kurze Pause\" dauert 15 Minuten",
+      "Fragt, ob man hinten etwas hört",
+      "Sucht die richtige Datei",
+      "Sagt \"genau\"",
+      "Schaut auf die Uhr",
+      "\"Das lasse ich mal als Übung\"",
+      "Laserpointer kommt zum Einsatz",
+      "Sagt \"im Prinzip\""
+    ]
+  }
+]

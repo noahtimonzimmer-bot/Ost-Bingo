@@ -1,0 +1,31 @@
+{
+  "name": "ost-bingo",
+  "version": "1.0.0",
+  "description": "Vorlesungs-Bingo: Multiplayer-Lobbys mit Lehrer-Sprüchen",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/smoke.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noahtimonzimmer-bot/Ost-Bingo.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/noahtimonzimmer-bot/Ost-Bingo/issues"
+  },
+  "homepage": "https://github.com/noahtimonzimmer-bot/Ost-Bingo#readme",
+  "dependencies": {
+    "express": "^4.22.3",
+    "socket.io": "^4.8.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true,
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}
