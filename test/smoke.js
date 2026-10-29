@@ -58,6 +58,17 @@ server.listen(0, async () => {
     for (const i of [0, 1, 2]) await call(a, 'mark', { index: i });
     const ev = await bingo;
     assert.equal(ev.name, 'Anna');
+
+    // Bestenliste: Anna 1. Platz, beide eine Runde
+    let board = await (await fetch(url + '/api/leaderboard')).json();
+    assert.deepEqual(board.map((s) => [s.name, s.points, s.wins, s.bingos, s.rounds]), [
+      ['Anna', 5, 1, 1, 1],
+      ['Ben', 0, 0, 0, 1],
+    ]);
+    // Bingo wieder wegklicken nimmt die Punkte zurück
+    await call(a, 'mark', { index: 0 });
+    board = await (await fetch(url + '/api/leaderboard')).json();
+    assert.equal(board[0].points, 0);
     console.log('✓ Smoke-Test bestanden');
     a.close();
     b.close();

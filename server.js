@@ -11,6 +11,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const TEACHERS_FILE = path.join(DATA_DIR, 'teachers.json');
 const SEED_FILE = path.join(__dirname, 'seed', 'teachers.json');
+const LEADERBOARD_FILE = path.join(DATA_DIR, 'leaderboard.json');
 
 const MAX_TEXT = 80;
 const MAX_NAME = 24;
@@ -34,9 +35,55 @@ let teachers = loadTeachers();
 saveTeachers();
 
 function saveTeachers() {
-  const tmp = TEACHERS_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(teachers, null, 2));
-  fs.renameSync(tmp, TEACHERS_FILE);
+  writeJson(TEACHERS_FILE, teachers);
+}
+
+function writeJson(file, data) {
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, file);
+}
+
+// ---------------------------------------------------------------------------
+// All-Time-Bestenliste (dauerhaft in data/leaderboard.json, nach Name)
+// ---------------------------------------------------------------------------
+
+/** Punkte je Platzierung; jedes weitere Bingo zählt 1 Punkt. */
+const PLACE_POINTS = [5, 3, 2];
+const pointsFor = (place) => PLACE_POINTS[place - 1] ?? 1;
+
+let leaderboard = {};
+try {
+  leaderboard = JSON.parse(fs.readFileSync(LEADERBOARD_FILE, 'utf8'));
+} catch {
+  leaderboard = {};
+}
+
+function statsFor(name) {
+  const key = name.toLowerCase();
+  leaderboard[key] ??= { name, points: 0, wins: 0, bingos: 0, rounds: 0 };
+  leaderboard[key].name = name;
+  return leaderboard[key];
+}
+
+function recordRound(name) {
+  statsFor(name).rounds += 1;
+  writeJson(LEADERBOARD_FILE, leaderboard);
+}
+
+/** sign = +1 bei Bingo, -1 wenn das Bingo wieder weggeklickt wurde */
+function recordBingo(name, place, sign) {
+  const s = statsFor(name);
+  s.bingos = Math.max(0, s.bingos + sign);
+  s.points = Math.max(0, s.points + sign * pointsFor(place));
+  if (place === 1) s.wins = Math.max(0, s.wins + sign);
+  writeJson(LEADERBOARD_FILE, leaderboard);
+}
+
+function rankedLeaderboard() {
+  return Object.values(leaderboard)
+    .filter((s) => s.rounds > 0 || s.bingos > 0)
+    .sort((a, b) => b.points - a.points || b.wins - a.wins || b.bingos - a.bingos || a.rounds - b.rounds);
 }
 
 function findTeacher(id) {
@@ -224,6 +271,8 @@ app.delete('/api/teachers/:id/phrases/:index', (req, res) => {
   res.json(teacher);
 });
 
+app.get('/api/leaderboard', (_req, res) => res.json(rankedLeaderboard()));
+
 app.get('/healthz', (_req, res) => res.send('ok'));
 
 const server = http.createServer(app);
@@ -266,6 +315,7 @@ io.on('connection', (socket) => {
       if (lobby.phase === 'playing') {
         player.board = makeBoard(lobby);
         player.marked = initialMarks(lobby, player.board);
+        recordRound(player.name);
       }
     }
     player.connected = true;
@@ -305,6 +355,7 @@ io.on('connection', (socket) => {
       fields,
       allFields: new Map(fields.map((f) => [f.id, f.text])),
       roundFields: [],
+      recorded: new Map(),
       round: 0,
       players: new Map(),
       winners: [],
@@ -374,10 +425,12 @@ io.on('connection', (socket) => {
     lobby.phase = 'playing';
     lobby.round += 1;
     lobby.winners = [];
+    lobby.recorded = new Map();
     for (const p of lobby.players.values()) {
       p.board = makeBoard(lobby);
       p.marked = initialMarks(lobby, p.board);
       p.bingo = false;
+      recordRound(p.name);
     }
     broadcast(lobby);
     for (const p of lobby.players.values()) sendBoard(lobby, p);
@@ -396,10 +449,16 @@ io.on('connection', (socket) => {
     if (bingoNow && !player.bingo) {
       player.bingo = true;
       lobby.winners.push({ id: player.id, name: player.name, at: Date.now() });
-      io.to(lobby.code).emit('bingo', { id: player.id, name: player.name, place: lobby.winners.length });
+      const place = lobby.winners.length;
+      lobby.recorded.set(player.id, { name: player.name, place });
+      recordBingo(player.name, place, +1);
+      io.to(lobby.code).emit('bingo', { id: player.id, name: player.name, place });
     } else if (!bingoNow && player.bingo) {
       player.bingo = false;
       lobby.winners = lobby.winners.filter((w) => w.id !== player.id);
+      const rec = lobby.recorded.get(player.id);
+      if (rec) recordBingo(rec.name, rec.place, -1);
+      lobby.recorded.delete(player.id);
     }
     broadcast(lobby);
     done(cb, { marked: [...player.marked] });

@@ -12,6 +12,7 @@
     <a href="/" class="logo">🎯 Vorlesungs-Bingo</a>
     <nav>
       <button class="link" data-goto="home">Spielen</button>
+      <button class="link" data-goto="leaderboard">Bestenliste</button>
       <button class="link" data-goto="teachers">Lehrer verwalten</button>
     </nav>
   </header>
@@ -49,6 +50,24 @@
           </label>
           <button id="btn-join" class="primary">Beitreten</button>
         </div>
+      </div>
+    </section>
+
+    <!-- All-Time-Bestenliste -->
+    <section id="view-leaderboard" class="view" hidden>
+      <div class="card">
+        <h2>🏆 All-Time-Bestenliste</h2>
+        <p class="muted">Punkte pro Bingo: 1. Platz 5 · 2. Platz 3 · 3. Platz 2 · jedes weitere Bingo 1.
+          Gezählt wird nach Spielername.</p>
+        <div class="table-wrap">
+          <table class="leaderboard">
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Punkte</th><th title="1. Plätze">🥇</th><th>Bingos</th><th>Runden</th></tr>
+            </thead>
+            <tbody id="leaderboard-body"></tbody>
+          </table>
+        </div>
+        <p class="muted" id="leaderboard-empty" hidden>Noch keine Einträge – spielt eine Runde!</p>
       </div>
     </section>
 

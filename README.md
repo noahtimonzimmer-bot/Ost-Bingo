@@ -17,6 +17,8 @@ Bingo hat, sehen es alle.
 - **3×3, 4×4 oder 5×5**, optional mit freiem Feld in der Mitte.
 - Jeder bekommt ein eigenes, zufällig gemischtes Spielfeld; der Server prüft Bingo
   (Reihe, Spalte, Diagonale) und meldet es allen inklusive Platzierung.
+- **All-Time-Bestenliste** (nach Spielername): 1. Platz 5 Punkte, 2. Platz 3, 3. Platz 2,
+  jedes weitere Bingo 1 Punkt. Dazu Siege, Bingos und gespielte Runden.
 - Man sieht nicht, welche Felder andere schon abgehakt haben – verpasst ist verpasst.
 - Host kann Spieler entfernen und eine neue Runde starten. Bei Verbindungsabbruch
   (z. B. Handy gesperrt) kommt man automatisch wieder ins gleiche Spiel.
@@ -101,12 +103,12 @@ location / {
 | Variable   | Standard  | Bedeutung                              |
 |------------|-----------|----------------------------------------|
 | `PORT`     | `3000`    | Port des Servers                       |
-| `DATA_DIR` | `./data`  | Ordner, in dem `teachers.json` liegt   |
+| `DATA_DIR` | `./data`  | Ordner für `teachers.json` und `leaderboard.json` |
 
 ## Hinweise
 
 - Lobbys liegen nur im Arbeitsspeicher – nach einem Neustart des Servers sind laufende Spiele weg,
-  die Lehrer bleiben erhalten.
+  Lehrer und Bestenliste bleiben erhalten.
 - Es gibt keine Anmeldung: Jeder mit Zugriff auf die Seite kann Lehrer anlegen und löschen.
   Wenn du das einschränken willst, sichere die Seite z. B. per Passwort im Reverse-Proxy ab.
 

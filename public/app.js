@@ -80,7 +80,9 @@ async function api(method, url, body) {
   return data;
 }
 
+let currentView = 'home';
 function show(view) {
+  currentView = view;
   $$('.view').forEach((v) => (v.hidden = v.id !== 'view-' + view));
   $$('[data-goto]').forEach((b) => b.classList.toggle('active', b.dataset.goto === view));
 }
@@ -100,8 +102,9 @@ function myName() {
 
 $$('[data-goto]').forEach((b) =>
   b.addEventListener('click', () => {
-    if (lobby && b.dataset.goto === 'home') return render();
+    if (lobby && b.dataset.goto === 'home') return render(true);
     if (b.dataset.goto === 'teachers') loadTeachers();
+    if (b.dataset.goto === 'leaderboard') loadLeaderboard();
     show(b.dataset.goto);
   })
 );
@@ -158,6 +161,30 @@ $$('.leave').forEach((b) =>
     leftLobby();
   })
 );
+
+// ---------------------------------------------------------------------------
+// Bestenliste
+// ---------------------------------------------------------------------------
+
+async function loadLeaderboard() {
+  const rows = (await api('GET', '/api/leaderboard')) || [];
+  const me = ($('#name').value.trim() || '').toLowerCase();
+  $('#leaderboard-body').replaceChildren(
+    ...rows.map((s, i) =>
+      el(
+        'tr',
+        { class: s.name.toLowerCase() === me ? 'me' : '' },
+        el('td', {}, (s.points > 0 && ['🥇', '🥈', '🥉'][i]) || i + 1),
+        el('td', {}, s.name),
+        el('td', { class: 'num' }, s.points),
+        el('td', { class: 'num' }, s.wins),
+        el('td', { class: 'num' }, s.bingos),
+        el('td', { class: 'num' }, s.rounds)
+      )
+    )
+  );
+  $('#leaderboard-empty').hidden = rows.length > 0;
+}
 
 // ---------------------------------------------------------------------------
 // Lehrer verwalten
@@ -396,7 +423,9 @@ async function toggle(index) {
   renderGame();
 }
 
-function render() {
+function render(force = false) {
+  // Bestenliste/Lehrer nicht wegreißen, wenn im Hintergrund die Lobby aktualisiert wird
+  if (!force && (currentView === 'teachers' || currentView === 'leaderboard')) return;
   if (!lobby) return show('home');
   if (lobby.phase === 'setup') {
     show('setup');
@@ -427,6 +456,7 @@ socket.on('bingo', ({ id, name, place }) => {
     ? `Du hast Bingo! (Platz ${place}) 🎉`
     : `${name} hat Bingo! (Platz ${place})`;
   $('#bingo-overlay').hidden = false;
+  if (currentView === 'leaderboard') loadLeaderboard();
   clearTimeout(overlayTimer);
   overlayTimer = setTimeout(() => ($('#bingo-overlay').hidden = true), 3500);
 });
