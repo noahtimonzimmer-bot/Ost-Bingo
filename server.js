@@ -124,6 +124,21 @@ function hasBingo(size, marked) {
   return false;
 }
 
+/** Eigene Felder, die die Abstimmung überstanden haben, dauerhaft beim Lehrer speichern. */
+function saveCustomFields(lobby) {
+  const teacher = findTeacher(lobby.teacherId);
+  if (!teacher) return;
+  const known = new Set(teacher.phrases.map((p) => p.toLowerCase()));
+  let changed = false;
+  for (const f of lobby.fields) {
+    if (!f.custom || known.has(f.text.toLowerCase())) continue;
+    teacher.phrases.push(f.text);
+    known.add(f.text.toLowerCase());
+    changed = true;
+  }
+  if (changed) saveTeachers();
+}
+
 function publicLobby(lobby) {
   const counts = {};
   for (const p of lobby.players.values()) {
@@ -362,6 +377,7 @@ io.on('connection', (socket) => {
     if (lobby.fields.length < needed) {
       return fail(cb, `Es werden mindestens ${needed} Felder gebraucht (aktuell ${lobby.fields.length})`);
     }
+    saveCustomFields(lobby);
     // Alle spielen mit denselben Feldern – nur in unterschiedlicher Anordnung.
     lobby.roundFields = shuffle(lobby.fields.map((f) => f.id)).slice(0, needed);
     lobby.phase = 'playing';
@@ -472,7 +488,15 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 
 if (require.main === module) {
-  server.listen(PORT, () => console.log(`Bingo läuft auf http://localhost:${PORT}`));
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Bingo läuft auf http://localhost:${PORT}`);
+    // Adressen anzeigen, unter denen andere im WLAN/LAN mitspielen können
+    for (const addrs of Object.values(require('os').networkInterfaces())) {
+      for (const a of addrs || []) {
+        if (a.family === 'IPv4' && !a.internal) console.log(`Im Netzwerk:  http://${a.address}:${PORT}`);
+      }
+    }
+  });
 }
 
 module.exports = { server, hasBingo };

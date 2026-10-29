@@ -12,6 +12,8 @@ Bingo hat, sehen es alle.
 - **Eigene Felder** vor dem Start hinzufügen – zusätzlich zu den Standard-Feldern des Lehrers.
 - **Abstimmung**: Jedes Feld kann per 👎 rausgewählt werden. Sobald die Mehrheit der
   verbundenen Spieler dafür ist, fliegt es raus.
+- Eigene Felder, die beim Spielstart noch drin sind, werden **dauerhaft beim Lehrer gespeichert**
+  und sind in der nächsten Lobby automatisch dabei.
 - **3×3, 4×4 oder 5×5**, optional mit freiem Feld in der Mitte.
 - Jeder bekommt ein eigenes, zufällig gemischtes Spielfeld; der Server prüft Bingo
   (Reihe, Spalte, Diagonale) und meldet es allen inklusive Platzierung.
@@ -29,6 +31,28 @@ npm start
 ```
 
 Dann <http://localhost:3000> öffnen.
+
+## Vom eigenen PC im lokalen Netzwerk (WLAN) hosten
+
+1. [Node.js](https://nodejs.org) (LTS) installieren.
+2. Im Projektordner einmalig `npm install` ausführen, danach `npm start`.
+3. In der Konsole stehen dann die Adressen, z. B.:
+   ```
+   Bingo läuft auf http://localhost:3000
+   Im Netzwerk:  http://192.168.178.42:3000
+   ```
+4. Die Adresse hinter „Im Netzwerk“ an die anderen schicken – sie müssen im selben WLAN sein.
+5. **Windows:** Beim ersten Start fragt die Firewall nach – „Private Netzwerke“ erlauben.
+   Kommt keine Abfrage und es klappt nicht, in PowerShell (als Administrator):
+   ```powershell
+   New-NetFirewallRule -DisplayName "Bingo" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
+   ```
+   **macOS:** Bei der Abfrage „Eingehende Verbindungen erlauben“ zustimmen.
+
+Hinweis: Uni-WLANs wie eduroam blockieren oft Verbindungen zwischen Geräten. Dann klappt es z. B.
+über einen Handy-Hotspot, mit dem sich alle verbinden.
+
+Anderer Port: `PORT=8080 npm start` (Windows PowerShell: `$env:PORT=8080; npm start`).
 
 ## Auf einem Server hosten
 

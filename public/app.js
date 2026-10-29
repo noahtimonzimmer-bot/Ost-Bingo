@@ -147,6 +147,7 @@ function leftLobby() {
   lobby = null;
   board = null;
   history.replaceState(null, '', '/');
+  loadTeachers(); // neue Felder aus der Runde sind jetzt beim Lehrer
   show('home');
 }
 

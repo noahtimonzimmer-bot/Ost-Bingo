@@ -39,6 +39,7 @@ server.listen(0, async () => {
     await call(b, 'vote', { fieldId: custom.id });
     lobby = await state;
     assert(!lobby.fields.some((f) => f.id === custom.id), 'Feld wurde nicht entfernt');
+    assert((await call(a, 'addField', { text: 'Bleibt drin' })).ok);
 
     // Nur Host darf starten
     assert((await call(b, 'start')).error);
@@ -46,6 +47,9 @@ server.listen(0, async () => {
     const boardB = next(b, 'board');
     assert((await call(a, 'start')).ok);
     const [ba, bb] = await Promise.all([boardA, boardB]);
+    const phrases = (await (await fetch(url + '/api/teachers')).json())[0].phrases;
+    assert(phrases.includes('Bleibt drin'), 'Eigenes Feld nicht beim Lehrer gespeichert');
+    assert(!phrases.includes('Zeigt Kartentrick 2'), 'Rausgewähltes Feld wurde gespeichert');
     assert.equal(ba.board.length, 9);
     assert.deepEqual([...ba.board].sort(), [...bb.board].sort(), 'Nicht dieselben Felder');
 
