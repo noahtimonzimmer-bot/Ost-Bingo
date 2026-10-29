@@ -140,14 +140,6 @@ function saveCustomFields(lobby) {
 }
 
 function publicLobby(lobby) {
-  const counts = {};
-  for (const p of lobby.players.values()) {
-    if (!p.board) continue;
-    for (const i of p.marked) {
-      const id = p.board[i];
-      if (id) counts[id] = (counts[id] || 0) + 1;
-    }
-  }
   return {
     code: lobby.code,
     hostId: lobby.hostId,
@@ -167,7 +159,6 @@ function publicLobby(lobby) {
       votes: [...f.votes],
     })),
     fieldText: Object.fromEntries(lobby.allFields),
-    markCounts: counts,
     players: [...lobby.players.values()].map((p) => ({
       id: p.id,
       name: p.name,

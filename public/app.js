@@ -362,7 +362,6 @@ function renderGame() {
     grid.replaceChildren(
       ...board.board.map((id, i) => {
         if (id === null) return el('div', { class: 'cell free' }, '⭐ FREI');
-        const count = lobby.markCounts[id] || 0;
         return el(
           'button',
           {
@@ -370,8 +369,7 @@ function renderGame() {
             'aria-pressed': marked.has(i) ? 'true' : 'false',
             onclick: () => toggle(i),
           },
-          lobby.fieldText[id] ?? '?',
-          count ? el('span', { class: 'count', title: 'So viele haben das abgehakt' }, count) : null
+          lobby.fieldText[id] ?? '?'
         );
       })
     );

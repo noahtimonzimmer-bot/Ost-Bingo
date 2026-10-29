@@ -17,7 +17,7 @@ Bingo hat, sehen es alle.
 - **3×3, 4×4 oder 5×5**, optional mit freiem Feld in der Mitte.
 - Jeder bekommt ein eigenes, zufällig gemischtes Spielfeld; der Server prüft Bingo
   (Reihe, Spalte, Diagonale) und meldet es allen inklusive Platzierung.
-- Kleine Zahl im Feld zeigt, wie viele Mitspieler das schon abgehakt haben.
+- Man sieht nicht, welche Felder andere schon abgehakt haben – verpasst ist verpasst.
 - Host kann Spieler entfernen und eine neue Runde starten. Bei Verbindungsabbruch
   (z. B. Handy gesperrt) kommt man automatisch wieder ins gleiche Spiel.
 
