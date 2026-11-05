@@ -45,6 +45,14 @@ server.listen(0, async () => {
     const b = io(url);
     const created = await call(a, 'create', { name: 'Anna', playerId: 'player-aaaa', teacherId: teachers[0].id, size: 3 });
     assert(created.ok, JSON.stringify(created));
+    // Private Lobby taucht nicht in der Liste auf, öffentliche schon
+    assert.deepEqual(await (await fetch(url + '/api/lobbies')).json(), []);
+    const c = io(url);
+    const pub = await call(c, 'create', { name: 'Cleo', playerId: 'player-cccc', teacherId: teachers[0].id, public: true });
+    const open = await (await fetch(url + '/api/lobbies')).json();
+    assert.deepEqual(open.map((l) => [l.code, l.hostName, l.players]), [[pub.code, 'Cleo', 1]]);
+    c.close();
+
     const lobbyState = next(b, 'lobby');
     assert((await call(b, 'join', { name: 'Ben', playerId: 'player-bbbb', code: created.code })).ok);
 

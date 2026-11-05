@@ -130,6 +130,7 @@ $('#btn-create').addEventListener('click', async () => {
     teacherId: $('#create-teacher').value,
     size: Number($('#create-size').value),
     freeCenter: $('#create-free').checked,
+    public: document.querySelector('[name=create-visibility]:checked').value === 'public',
   });
   if (res.ok) enteredLobby(res.code);
 });
@@ -138,13 +139,40 @@ $('#btn-join').addEventListener('click', joinFromForm);
 $('#join-code').addEventListener('keydown', (e) => e.key === 'Enter' && joinFromForm());
 
 async function joinFromForm() {
-  const name = myName();
   const code = $('#join-code').value.trim().toUpperCase();
-  if (!name) return;
   if (!code) return toast('Bitte gib einen Lobby-Code ein');
+  joinLobby(code);
+}
+
+async function joinLobby(code) {
+  const name = myName();
+  if (!name) return;
   const res = await emit('join', { name, playerId, code });
   if (res.ok) enteredLobby(res.code);
 }
+
+function renderOpenLobbies(list) {
+  $('#open-count').textContent = list.length;
+  $('#open-empty').hidden = list.length > 0;
+  $('#open-lobbies').replaceChildren(
+    ...list.map((l) =>
+      el(
+        'li',
+        {},
+        el('div', { class: 'text' },
+          el('b', {}, l.teacherName),
+          el('span', { class: 'muted' },
+            ` · ${l.size}×${l.size} · ${l.players} Spieler · Host: ${l.hostName}`),
+          el('div', { class: 'muted' }, l.phase === 'playing' ? `🎲 läuft – Runde ${l.round}` : '⏳ sammelt Felder')
+        ),
+        el('button', { class: 'primary', onclick: () => joinLobby(l.code) }, 'Beitreten')
+      )
+    )
+  );
+}
+
+socket.on('lobbies', renderOpenLobbies);
+api('GET', '/api/lobbies').then((list) => list && renderOpenLobbies(list));
 
 function enteredLobby(code) {
   store('bingo.lobby', code);
@@ -387,6 +415,7 @@ $('#form-field').addEventListener('submit', async (e) => {
 
 $('#set-size').addEventListener('change', (e) => emit('settings', { size: Number(e.target.value) }));
 $('#set-free').addEventListener('change', (e) => emit('settings', { freeCenter: e.target.checked }));
+$('#set-public').addEventListener('change', (e) => emit('settings', { public: e.target.checked }));
 $('#btn-start').addEventListener('click', () => emit('start'));
 $('#btn-reset').addEventListener('click', () => {
   if (confirm('Neue Runde starten? Alle Felder werden zurückgesetzt.')) emit('reset');
@@ -434,6 +463,9 @@ function renderSetup() {
   const isHost = lobby.hostId === playerId;
   $('#setup-code').textContent = lobby.code;
   $('#setup-teacher').textContent = 'Lehrer: ' + lobby.teacherName;
+  $('#setup-visibility').textContent = lobby.public
+    ? '🌍 Öffentlich – steht auf der Startseite'
+    : '🔑 Privat – nur mit Code';
   $('#field-count').textContent = lobby.fields.length;
   $('#votes-needed').textContent = lobby.votesNeeded;
 
@@ -486,6 +518,7 @@ function renderSetup() {
   $('#btn-start').disabled = !enough;
   $('#set-size').value = lobby.size;
   $('#set-free').checked = lobby.freeCenter;
+  $('#set-public').checked = lobby.public;
   $('#set-free').disabled = lobby.size % 2 === 0;
 }
 

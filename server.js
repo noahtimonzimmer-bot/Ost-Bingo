@@ -261,6 +261,7 @@ function publicLobby(lobby) {
     phase: lobby.phase,
     size: lobby.size,
     freeCenter: lobby.freeCenter,
+    public: lobby.public,
     fieldsNeeded: fieldsNeeded(lobby),
     votesNeeded: votesNeeded(lobby),
     round: lobby.round,
@@ -416,6 +417,8 @@ app.delete('/api/teachers/:id/phrases/:pid', requireAdmin, (req, res) => {
 
 app.get('/api/leaderboard', (_req, res) => res.json(rankedLeaderboard()));
 
+app.get('/api/lobbies', (_req, res) => res.json(openLobbies()));
+
 app.delete('/api/leaderboard/:name', requireAdmin, (req, res) => {
   delete leaderboard[req.params.name.toLowerCase()];
   writeJson(LEADERBOARD_FILE, leaderboard);
@@ -434,6 +437,33 @@ const io = new Server(server);
 function broadcast(lobby) {
   lobby.touched = Date.now();
   io.to(lobby.code).emit('lobby', publicLobby(lobby));
+  announceLobbies();
+}
+
+/** Öffentliche Lobbys mit mindestens einem verbundenen Spieler – für die Startseite. */
+function openLobbies() {
+  return [...lobbies.values()]
+    .filter((l) => l.public && connectedPlayers(l).length > 0)
+    .map((l) => ({
+      code: l.code,
+      teacherName: findTeacher(l.teacherId)?.name ?? 'Unbekannt',
+      hostName: l.players.get(l.hostId)?.name ?? '',
+      players: connectedPlayers(l).length,
+      phase: l.phase,
+      round: l.round,
+      size: l.size,
+    }))
+    .sort((a, b) => b.players - a.players);
+}
+
+// Liste an alle schicken, aber höchstens zweimal pro Sekunde
+let announceTimer = null;
+function announceLobbies() {
+  if (announceTimer) return;
+  announceTimer = setTimeout(() => {
+    announceTimer = null;
+    io.emit('lobbies', openLobbies());
+  }, 500);
 }
 
 function sendBoard(lobby, player) {
@@ -503,6 +533,7 @@ io.on('connection', (socket) => {
       phase: 'setup',
       size,
       freeCenter: data?.freeCenter !== false,
+      public: data?.public === true,
       fields,
       allFields: new Map(fields.map((f) => [f.id, f.text])),
       roundFields: [],
@@ -588,6 +619,7 @@ io.on('connection', (socket) => {
     if (lobby.phase !== 'setup') return fail(cb, 'Nur vor dem Start möglich');
     if ([3, 4, 5].includes(Number(data?.size))) lobby.size = Number(data.size);
     if (typeof data?.freeCenter === 'boolean') lobby.freeCenter = data.freeCenter;
+    if (typeof data?.public === 'boolean') lobby.public = data.public;
     broadcast(lobby);
     done(cb);
   });
@@ -713,6 +745,7 @@ setInterval(() => {
   for (const [code, lobby] of lobbies) {
     if (connectedPlayers(lobby).length === 0 && now - lobby.touched > LOBBY_IDLE_MS) {
       lobbies.delete(code);
+      announceLobbies();
     }
   }
 }, 10 * 60 * 1000).unref();

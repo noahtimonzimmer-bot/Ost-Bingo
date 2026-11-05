@@ -246,3 +246,13 @@ input[type="password"] {
   display: block; width: 100%; padding: 10px 12px;
   border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
 }
+
+/* Offene Lobbys & Sichtbarkeit */
+ul.lobby-list { list-style: none; margin: 0; padding: 0; }
+ul.lobby-list li {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+ul.lobby-list .text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+fieldset.visibility { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; padding: 8px 12px 0; }
+fieldset.visibility legend { font-weight: 500; padding: 0 4px; }

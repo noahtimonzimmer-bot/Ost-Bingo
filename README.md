@@ -9,6 +9,9 @@ Bingo hat, sehen es alle.
 - **Lehrer verwalten** – beliebig viele Lehrer mit ihren Standard-Feldern anlegen
   (z. B. „Sagt *sozusagen*“, „Zeigt einen Kartentrick“). Wird dauerhaft gespeichert.
 - **Lobby** mit 5-stelligem Code und Einladungslink (`/?lobby=CODE`).
+- **Öffentlich oder privat**: Öffentliche Lobbys stehen live auf der Startseite unter
+  „Offene Bingos“ und man tritt mit einem Klick bei (auch wenn die Runde schon läuft).
+  Private Lobbys sind nicht gelistet – dafür braucht man den Code. Der Host kann das in der Lobby umstellen.
 - **Eigene Felder** vor dem Start hinzufügen – zusätzlich zu den Standard-Feldern des Lehrers.
 - **Abstimmung**: Jedes Feld kann per 👎 rausgewählt werden. Sobald die Mehrheit der
   verbundenen Spieler dafür ist, fliegt es raus.

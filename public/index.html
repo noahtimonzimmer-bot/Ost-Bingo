@@ -27,6 +27,12 @@
         </label>
       </div>
 
+      <div class="card open-lobbies">
+        <h2>🌍 Offene Bingos <span class="badge" id="open-count">0</span></h2>
+        <ul id="open-lobbies" class="lobby-list"></ul>
+        <p class="muted" id="open-empty">Gerade läuft kein öffentliches Bingo – erstell doch eins!</p>
+      </div>
+
       <div class="grid2">
         <div class="card">
           <h2>Lobby erstellen</h2>
@@ -41,17 +47,25 @@
             </select>
           </label>
           <label class="check"><input type="checkbox" id="create-free" checked> Freies Feld in der Mitte</label>
+          <fieldset class="visibility">
+            <legend>Sichtbarkeit</legend>
+            <label class="check"><input type="radio" name="create-visibility" value="public" checked>
+              🌍 Öffentlich – steht auf der Startseite, jeder kann beitreten</label>
+            <label class="check"><input type="radio" name="create-visibility" value="private">
+              🔑 Privat – nur mit Lobby-Code</label>
+          </fieldset>
           <button id="btn-create" class="primary">Lobby erstellen</button>
         </div>
 
         <div class="card">
-          <h2>Lobby beitreten</h2>
+          <h2>Private Lobby beitreten</h2>
           <label>Lobby-Code
             <input id="join-code" maxlength="5" placeholder="ABCDE" autocapitalize="characters">
           </label>
           <button id="btn-join" class="primary">Beitreten</button>
         </div>
       </div>
+
     </section>
 
     <!-- All-Time-Bestenliste -->
@@ -131,6 +145,7 @@
           <div class="muted">Lobby-Code</div>
           <div class="code" id="setup-code"></div>
           <div class="muted" id="setup-teacher"></div>
+          <div class="muted" id="setup-visibility"></div>
         </div>
         <div class="head-actions">
           <button id="btn-copy">🔗 Einladungslink kopieren</button>
@@ -166,6 +181,7 @@
               </select>
             </label>
             <label class="check"><input type="checkbox" id="set-free"> Freies Feld in der Mitte</label>
+            <label class="check"><input type="checkbox" id="set-public"> 🌍 Öffentlich auf der Startseite</label>
             <p class="muted" id="need-hint"></p>
             <button id="btn-start" class="primary big">Spiel starten</button>
           </div>
