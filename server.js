@@ -12,10 +12,12 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const TEACHERS_FILE = path.join(DATA_DIR, 'teachers.json');
 const SEED_FILE = path.join(__dirname, 'seed', 'teachers.json');
 const LEADERBOARD_FILE = path.join(DATA_DIR, 'leaderboard.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 const MAX_TEXT = 80;
 const MAX_NAME = 24;
 const LOBBY_IDLE_MS = 6 * 60 * 60 * 1000; // leere Lobbys nach 6h löschen
+const ADMIN_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Lehrer (dauerhaft in data/teachers.json gespeichert)
@@ -31,7 +33,13 @@ function loadTeachers() {
   }
 }
 
-let teachers = loadTeachers();
+const newId = () => crypto.randomBytes(6).toString('hex');
+
+// Früher waren Felder einfache Texte – in Objekte umwandeln. Alles ist anfangs gesperrt.
+let teachers = loadTeachers().map((t) => ({
+  ...t,
+  phrases: t.phrases.map((p) => (typeof p === 'string' ? { id: newId(), text: p, locked: true } : p)),
+}));
 saveTeachers();
 
 function saveTeachers() {
@@ -94,7 +102,54 @@ function clean(text, max = MAX_TEXT) {
   return String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-const newId = () => crypto.randomBytes(6).toString('hex');
+function findPhrase(teacher, phraseId) {
+  return teacher?.phrases.find((p) => p.id === phraseId);
+}
+
+// ---------------------------------------------------------------------------
+// Admin & gesperrte Wörter (data/settings.json)
+// ---------------------------------------------------------------------------
+
+let settings = {};
+try {
+  settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+} catch {
+  settings = {};
+}
+settings.bannedWords ??= [];
+if (!process.env.ADMIN_PASSWORD && !settings.adminPassword) {
+  settings.adminPassword = crypto.randomBytes(6).toString('base64url');
+}
+writeJson(SETTINGS_FILE, settings);
+
+const adminPassword = () => process.env.ADMIN_PASSWORD || settings.adminPassword;
+
+/** token -> Ablaufzeit */
+const adminSessions = new Map();
+
+function checkPassword(given) {
+  const a = crypto.createHash('sha256').update(String(given ?? '')).digest();
+  const b = crypto.createHash('sha256').update(adminPassword()).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function isAdminToken(token) {
+  const expires = typeof token === 'string' && adminSessions.get(token);
+  if (!expires) return false;
+  if (expires < Date.now()) {
+    adminSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+/** Liefert das gesperrte Wort, falls der Text eines enthält. */
+function bannedWordIn(text) {
+  const lower = String(text).toLowerCase();
+  return settings.bannedWords.find((w) => lower.includes(w.toLowerCase()));
+}
+
+const bannedMessage = 'Enthält ein gesperrtes Wort';
 
 // ---------------------------------------------------------------------------
 // Lobbys (im Speicher)
@@ -138,11 +193,18 @@ function votesNeeded(lobby) {
   return Math.floor(connectedPlayers(lobby).length / 2) + 1;
 }
 
+/** Gesperrte Felder können nicht rausgewählt werden. Lehrer-Felder folgen live dem Lehrer. */
+function isLocked(lobby, field) {
+  if (field.phraseId) return !!findPhrase(findTeacher(lobby.teacherId), field.phraseId)?.locked;
+  return !!field.locked;
+}
+
 function applyVotes(lobby) {
   const needed = votesNeeded(lobby);
-  const removed = lobby.fields.filter((f) => f.votes.size >= needed);
+  const out = (f) => f.votes.size >= needed && !isLocked(lobby, f);
+  const removed = lobby.fields.filter(out);
   if (removed.length) {
-    lobby.fields = lobby.fields.filter((f) => f.votes.size < needed);
+    lobby.fields = lobby.fields.filter((f) => !out(f));
   }
   return removed;
 }
@@ -175,12 +237,16 @@ function hasBingo(size, marked) {
 function saveCustomFields(lobby) {
   const teacher = findTeacher(lobby.teacherId);
   if (!teacher) return;
-  const known = new Set(teacher.phrases.map((p) => p.toLowerCase()));
+  const known = new Set(teacher.phrases.map((p) => p.text.toLowerCase()));
   let changed = false;
   for (const f of lobby.fields) {
     if (!f.custom || known.has(f.text.toLowerCase())) continue;
-    teacher.phrases.push(f.text);
+    const phrase = { id: newId(), text: f.text, locked: true };
+    teacher.phrases.push(phrase);
     known.add(f.text.toLowerCase());
+    // ab jetzt ist es ein normales Lehrer-Feld
+    f.custom = false;
+    f.phraseId = phrase.id;
     changed = true;
   }
   if (changed) saveTeachers();
@@ -203,6 +269,7 @@ function publicLobby(lobby) {
       text: f.text,
       custom: f.custom,
       author: f.author,
+      locked: isLocked(lobby, f),
       votes: [...f.votes],
     })),
     fieldText: Object.fromEntries(lobby.allFields),
@@ -225,11 +292,59 @@ const app = express();
 app.use(express.json({ limit: '32kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+function adminToken(req) {
+  return req.get('x-admin-token');
+}
+
+function requireAdmin(req, res, next) {
+  if (isAdminToken(adminToken(req))) return next();
+  res.status(403).json({ error: 'Nur für Admins' });
+}
+
+let lastFailedLogin = 0;
+app.post('/api/admin/login', (req, res) => {
+  // einfache Bremse gegen Durchprobieren
+  if (Date.now() - lastFailedLogin < 1000) return res.status(429).json({ error: 'Kurz warten …' });
+  if (!checkPassword(req.body?.password)) {
+    lastFailedLogin = Date.now();
+    return res.status(401).json({ error: 'Falsches Passwort' });
+  }
+  const token = crypto.randomBytes(24).toString('hex');
+  adminSessions.set(token, Date.now() + ADMIN_SESSION_MS);
+  res.json({ token });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  adminSessions.delete(adminToken(req));
+  res.status(204).end();
+});
+
+app.get('/api/admin/me', (req, res) => res.json({ admin: isAdminToken(adminToken(req)) }));
+
+app.get('/api/banned', requireAdmin, (_req, res) => res.json(settings.bannedWords));
+
+app.post('/api/banned', requireAdmin, (req, res) => {
+  const word = clean(req.body?.word, 40);
+  if (!word) return res.status(400).json({ error: 'Wort fehlt' });
+  if (!settings.bannedWords.some((w) => w.toLowerCase() === word.toLowerCase())) {
+    settings.bannedWords.push(word);
+    writeJson(SETTINGS_FILE, settings);
+  }
+  res.status(201).json(settings.bannedWords);
+});
+
+app.delete('/api/banned/:word', requireAdmin, (req, res) => {
+  settings.bannedWords = settings.bannedWords.filter((w) => w !== req.params.word);
+  writeJson(SETTINGS_FILE, settings);
+  res.json(settings.bannedWords);
+});
+
 app.get('/api/teachers', (_req, res) => res.json(teachers));
 
 app.post('/api/teachers', (req, res) => {
   const name = clean(req.body?.name, 40);
   if (!name) return res.status(400).json({ error: 'Name fehlt' });
+  if (bannedWordIn(name)) return res.status(400).json({ error: bannedMessage });
   if (teachers.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
     return res.status(409).json({ error: 'Diesen Lehrer gibt es schon' });
   }
@@ -239,7 +354,7 @@ app.post('/api/teachers', (req, res) => {
   res.status(201).json(teacher);
 });
 
-app.delete('/api/teachers/:id', (req, res) => {
+app.delete('/api/teachers/:id', requireAdmin, (req, res) => {
   const before = teachers.length;
   teachers = teachers.filter((t) => t.id !== req.params.id);
   if (teachers.length === before) return res.status(404).json({ error: 'Nicht gefunden' });
@@ -247,31 +362,65 @@ app.delete('/api/teachers/:id', (req, res) => {
   res.status(204).end();
 });
 
+// Begriffe hinzufügen darf immer jeder.
 app.post('/api/teachers/:id/phrases', (req, res) => {
   const teacher = findTeacher(req.params.id);
   if (!teacher) return res.status(404).json({ error: 'Nicht gefunden' });
   const text = clean(req.body?.text);
   if (!text) return res.status(400).json({ error: 'Text fehlt' });
-  if (teacher.phrases.some((p) => p.toLowerCase() === text.toLowerCase())) {
+  if (bannedWordIn(text)) return res.status(400).json({ error: bannedMessage });
+  if (teacher.phrases.some((p) => p.text.toLowerCase() === text.toLowerCase())) {
     return res.status(409).json({ error: 'Gibt es schon' });
   }
-  teacher.phrases.push(text);
+  teacher.phrases.push({ id: newId(), text, locked: true });
   saveTeachers();
   res.status(201).json(teacher);
 });
 
-app.delete('/api/teachers/:id/phrases/:index', (req, res) => {
-  const teacher = findTeacher(req.params.id);
-  const index = Number(req.params.index);
-  if (!teacher || !(index >= 0 && index < teacher.phrases.length)) {
-    return res.status(404).json({ error: 'Nicht gefunden' });
+/** Lobbys mit diesem Lehrer neu senden, damit Schlösser sofort überall stimmen. */
+function refreshLobbies(teacherId) {
+  for (const lobby of lobbies.values()) {
+    if (lobby.teacherId !== teacherId) continue;
+    for (const f of lobby.fields) if (isLocked(lobby, f)) f.votes.clear();
+    broadcast(lobby);
   }
-  teacher.phrases.splice(index, 1);
+}
+
+app.patch('/api/teachers/:id/phrases/:pid', requireAdmin, (req, res) => {
+  const teacher = findTeacher(req.params.id);
+  const phrase = findPhrase(teacher, req.params.pid);
+  if (!phrase) return res.status(404).json({ error: 'Nicht gefunden' });
+  if (typeof req.body?.locked === 'boolean') phrase.locked = req.body.locked;
+  saveTeachers();
+  refreshLobbies(teacher.id);
+  res.json(teacher);
+});
+
+app.post('/api/teachers/:id/lock', requireAdmin, (req, res) => {
+  const teacher = findTeacher(req.params.id);
+  if (!teacher) return res.status(404).json({ error: 'Nicht gefunden' });
+  const locked = req.body?.locked !== false;
+  for (const p of teacher.phrases) p.locked = locked;
+  saveTeachers();
+  refreshLobbies(teacher.id);
+  res.json(teacher);
+});
+
+app.delete('/api/teachers/:id/phrases/:pid', requireAdmin, (req, res) => {
+  const teacher = findTeacher(req.params.id);
+  if (!findPhrase(teacher, req.params.pid)) return res.status(404).json({ error: 'Nicht gefunden' });
+  teacher.phrases = teacher.phrases.filter((p) => p.id !== req.params.pid);
   saveTeachers();
   res.json(teacher);
 });
 
 app.get('/api/leaderboard', (_req, res) => res.json(rankedLeaderboard()));
+
+app.delete('/api/leaderboard/:name', requireAdmin, (req, res) => {
+  delete leaderboard[req.params.name.toLowerCase()];
+  writeJson(LEADERBOARD_FILE, leaderboard);
+  res.json(rankedLeaderboard());
+});
 
 app.get('/healthz', (_req, res) => res.send('ok'));
 
@@ -333,13 +482,15 @@ io.on('connection', (socket) => {
     const name = clean(data?.name, MAX_NAME);
     const teacher = findTeacher(data?.teacherId);
     if (!name) return fail(cb, 'Bitte gib einen Namen ein');
+    if (bannedWordIn(name)) return fail(cb, 'Dein Name ' + bannedMessage.toLowerCase());
     if (!checkPlayerId(data?.playerId)) return fail(cb, 'Ungültige Spieler-ID');
     if (!teacher) return fail(cb, 'Bitte wähle einen Lehrer');
     const size = [3, 4, 5].includes(Number(data?.size)) ? Number(data.size) : 5;
 
-    const fields = teacher.phrases.map((text) => ({
+    const fields = teacher.phrases.map((p) => ({
       id: newId(),
-      text,
+      text: p.text,
+      phraseId: p.id,
       custom: false,
       author: null,
       votes: new Set(),
@@ -372,6 +523,7 @@ io.on('connection', (socket) => {
     const target = lobbies.get(code);
     if (!target) return fail(cb, 'Lobby nicht gefunden');
     if (!name) return fail(cb, 'Bitte gib einen Namen ein');
+    if (bannedWordIn(name)) return fail(cb, 'Dein Name ' + bannedMessage.toLowerCase());
     if (!checkPlayerId(data?.playerId)) return fail(cb, 'Ungültige Spieler-ID');
     if (lobby && lobby !== target) leave();
     join(target, data.playerId, name);
@@ -382,6 +534,7 @@ io.on('connection', (socket) => {
     if (!lobby || lobby.phase !== 'setup') return fail(cb, 'Nur vor dem Start möglich');
     const text = clean(data?.text);
     if (!text) return fail(cb, 'Text fehlt');
+    if (bannedWordIn(text)) return fail(cb, bannedMessage);
     if (lobby.fields.some((f) => f.text.toLowerCase() === text.toLowerCase())) {
       return fail(cb, 'Dieses Feld gibt es schon');
     }
@@ -396,10 +549,37 @@ io.on('connection', (socket) => {
     if (!lobby || lobby.phase !== 'setup') return fail(cb, 'Nur vor dem Start möglich');
     const field = lobby.fields.find((f) => f.id === data?.fieldId);
     if (!field) return fail(cb, 'Feld nicht gefunden');
+    if (isLocked(lobby, field)) return fail(cb, 'Dieses Feld ist gesperrt');
     if (field.votes.has(player.id)) field.votes.delete(player.id);
     else field.votes.add(player.id);
     applyVotes(lobby);
     broadcast(lobby);
+    done(cb);
+  });
+
+  // Admin: Feld in der Lobby sperren/entsperren oder direkt entfernen
+  socket.on('adminField', (data, cb) => {
+    if (!isAdminToken(data?.token)) return fail(cb, 'Nur für Admins');
+    if (!lobby || lobby.phase !== 'setup') return fail(cb, 'Nur vor dem Start möglich');
+    const field = lobby.fields.find((f) => f.id === data?.fieldId);
+    if (!field) return fail(cb, 'Feld nicht gefunden');
+    if (data.action === 'remove') {
+      lobby.fields = lobby.fields.filter((f) => f !== field);
+      broadcast(lobby);
+      return done(cb);
+    }
+    const locked = !isLocked(lobby, field);
+    const phrase = field.phraseId && findPhrase(findTeacher(lobby.teacherId), field.phraseId);
+    if (phrase) {
+      // Lehrer-Feld: gilt dauerhaft und für alle Lobbys dieses Lehrers
+      phrase.locked = locked;
+      saveTeachers();
+      refreshLobbies(lobby.teacherId);
+    } else {
+      field.locked = locked;
+      if (locked) field.votes.clear();
+      broadcast(lobby);
+    }
     done(cb);
   });
 
@@ -546,6 +726,11 @@ if (require.main === module) {
         if (a.family === 'IPv4' && !a.internal) console.log(`Im Netzwerk:  http://${a.address}:${PORT}`);
       }
     }
+    console.log(
+      process.env.ADMIN_PASSWORD
+        ? 'Admin-Passwort: aus ADMIN_PASSWORD'
+        : `Admin-Passwort: ${settings.adminPassword}  (ändern in ${SETTINGS_FILE} oder per ADMIN_PASSWORD)`
+    );
   });
 }
 

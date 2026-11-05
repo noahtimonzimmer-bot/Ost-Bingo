@@ -27,6 +27,8 @@ const socket = io();
 
 let teachers = [];
 let lobby = null;
+let adminToken = store('bingo.adminToken');
+let isAdmin = false;
 let board = null; // { round, board: [fieldId|null], marked: [index] }
 
 // ---------------------------------------------------------------------------
@@ -66,13 +68,16 @@ function emit(event, data = {}) {
 }
 
 async function api(method, url, body) {
+  const headers = body ? { 'Content-Type': 'application/json' } : {};
+  if (adminToken) headers['x-admin-token'] = adminToken;
   const res = await fetch(url, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 204) return {};
   const data = await res.json().catch(() => ({}));
+  if (res.status === 403 && adminToken) setAdmin(null); // Admin-Sitzung abgelaufen
   if (!res.ok) {
     toast(data.error || 'Fehler');
     return null;
@@ -105,6 +110,7 @@ $$('[data-goto]').forEach((b) =>
     if (lobby && b.dataset.goto === 'home') return render(true);
     if (b.dataset.goto === 'teachers') loadTeachers();
     if (b.dataset.goto === 'leaderboard') loadLeaderboard();
+    if (b.dataset.goto === 'admin') renderAdmin();
     show(b.dataset.goto);
   })
 );
@@ -179,11 +185,85 @@ async function loadLeaderboard() {
         el('td', { class: 'num' }, s.points),
         el('td', { class: 'num' }, s.wins),
         el('td', { class: 'num' }, s.bingos),
-        el('td', { class: 'num' }, s.rounds)
+        el('td', { class: 'num' }, s.rounds),
+        isAdmin
+          ? el('td', {}, el('button', {
+              class: 'small danger',
+              title: 'Eintrag löschen (Admin)',
+              onclick: async () => {
+                if (!confirm(`${s.name} aus der Bestenliste löschen?`)) return;
+                if (await api('DELETE', `/api/leaderboard/${encodeURIComponent(s.name)}`)) loadLeaderboard();
+              },
+            }, '✕'))
+          : null
       )
     )
   );
   $('#leaderboard-empty').hidden = rows.length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Admin
+// ---------------------------------------------------------------------------
+
+function setAdmin(token) {
+  adminToken = token;
+  store('bingo.adminToken', token);
+  isAdmin = !!token;
+  document.body.classList.toggle('is-admin', isAdmin);
+  $('#nav-admin').textContent = isAdmin ? '🛡️ Admin' : 'Admin';
+  renderAdmin();
+  renderTeachers();
+  if (lobby) render();
+  if (currentView === 'leaderboard') loadLeaderboard();
+}
+
+async function checkAdmin() {
+  if (!adminToken) return setAdmin(null);
+  const res = await api('GET', '/api/admin/me');
+  setAdmin(res?.admin ? adminToken : null);
+}
+
+$('#form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const res = await api('POST', '/api/admin/login', { password: $('#admin-password').value });
+  if (res?.token) {
+    $('#admin-password').value = '';
+    setAdmin(res.token);
+    toast('Als Admin angemeldet');
+  }
+});
+
+$('#btn-logout').addEventListener('click', async () => {
+  await api('POST', '/api/admin/logout');
+  setAdmin(null);
+});
+
+$('#form-banned').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const word = $('#banned-word').value.trim();
+  if (!word) return;
+  if (await api('POST', '/api/banned', { word })) {
+    $('#banned-word').value = '';
+    renderAdmin();
+  }
+});
+
+async function renderAdmin() {
+  $('#admin-login').hidden = isAdmin;
+  $('#admin-panel').hidden = !isAdmin;
+  if (!isAdmin) return;
+  const words = (await api('GET', '/api/banned')) || [];
+  $('#banned-list').replaceChildren(
+    ...words.map((w) =>
+      el('li', {}, el('span', { class: 'text' }, w), el('button', {
+        class: 'small',
+        title: 'Wieder erlauben',
+        onclick: async () => (await api('DELETE', `/api/banned/${encodeURIComponent(w)}`)) && renderAdmin(),
+      }, '✕'))
+    )
+  );
+  if (!words.length) $('#banned-list').append(el('li', { class: 'muted' }, 'Keine gesperrten Wörter.'));
 }
 
 // ---------------------------------------------------------------------------
@@ -219,25 +299,46 @@ function renderTeachers() {
           'div',
           { class: 'teacher-head' },
           el('h2', {}, t.name, el('span', { class: 'badge' }, t.phrases.length)),
-          el('button', {
-            class: 'small danger',
-            onclick: async () => {
-              if (!confirm(`„${t.name}“ mit allen Feldern löschen?`)) return;
-              if (await api('DELETE', `/api/teachers/${t.id}`)) loadTeachers();
-            },
-          }, 'Löschen')
+          isAdmin
+            ? el('div', { class: 'head-actions' },
+                el('button', {
+                  class: 'small',
+                  onclick: async () => (await api('POST', `/api/teachers/${t.id}/lock`, { locked: true })) && loadTeachers(),
+                }, '🔒 Alle sperren'),
+                el('button', {
+                  class: 'small',
+                  onclick: async () => (await api('POST', `/api/teachers/${t.id}/lock`, { locked: false })) && loadTeachers(),
+                }, '🔓 Alle entsperren'),
+                el('button', {
+                  class: 'small danger',
+                  onclick: async () => {
+                    if (!confirm(`„${t.name}“ mit allen Feldern löschen?`)) return;
+                    if (await api('DELETE', `/api/teachers/${t.id}`)) loadTeachers();
+                  },
+                }, 'Lehrer löschen'))
+            : null
         ),
         el(
           'ul',
           { class: 'phrases' },
-          t.phrases.map((p, i) =>
-            el('li', {}, el('span', {}, p), el('button', {
-              class: 'small',
-              title: 'Entfernen',
-              onclick: async () => {
-                if (await api('DELETE', `/api/teachers/${t.id}/phrases/${i}`)) loadTeachers();
-              },
-            }, '✕'))
+          t.phrases.map((p) =>
+            el('li', {},
+              el('span', {}, el('span', { class: 'lock', title: p.locked ? 'Gesperrt: kann nicht rausgewählt werden' : 'Kann in der Lobby rausgewählt werden' }, p.locked ? '🔒' : '🔓'), ' ', p.text),
+              isAdmin
+                ? el('span', { class: 'head-actions' },
+                    el('button', {
+                      class: 'small',
+                      title: p.locked ? 'Entsperren' : 'Sperren',
+                      onclick: async () =>
+                        (await api('PATCH', `/api/teachers/${t.id}/phrases/${p.id}`, { locked: !p.locked })) && loadTeachers(),
+                    }, p.locked ? 'Entsperren' : 'Sperren'),
+                    el('button', {
+                      class: 'small danger',
+                      title: 'Löschen',
+                      onclick: async () => (await api('DELETE', `/api/teachers/${t.id}/phrases/${p.id}`)) && loadTeachers(),
+                    }, '✕'))
+                : null
+            )
           )
         ),
         el(
@@ -346,11 +447,27 @@ function renderSetup() {
           f.text,
           f.custom ? el('span', { class: 'author' }, `eigenes Feld von ${f.author}`) : null
         ),
-        el('button', {
-          class: 'small vote' + (mine ? ' on' : ''),
-          title: mine ? 'Stimme zurückziehen' : 'Für Entfernen stimmen',
-          onclick: () => emit('vote', { fieldId: f.id }),
-        }, `👎 ${f.votes.length}/${lobby.votesNeeded}`)
+        isAdmin
+          ? el('button', {
+              class: 'small',
+              title: f.locked ? 'Entsperren (Admin)' : 'Sperren (Admin)',
+              onclick: () => emit('adminField', { token: adminToken, fieldId: f.id, action: 'lock' }),
+            }, f.locked ? '🔓' : '🔒')
+          : null,
+        isAdmin
+          ? el('button', {
+              class: 'small danger',
+              title: 'Sofort entfernen (Admin)',
+              onclick: () => emit('adminField', { token: adminToken, fieldId: f.id, action: 'remove' }),
+            }, '✕')
+          : null,
+        f.locked
+          ? el('span', { class: 'locked', title: 'Vom Admin gesperrt – kann nicht rausgewählt werden' }, '🔒 gesperrt')
+          : el('button', {
+              class: 'small vote' + (mine ? ' on' : ''),
+              title: mine ? 'Stimme zurückziehen' : 'Für Entfernen stimmen',
+              onclick: () => emit('vote', { fieldId: f.id }),
+            }, `👎 ${f.votes.length}/${lobby.votesNeeded}`)
       );
     })
   );
@@ -425,7 +542,7 @@ async function toggle(index) {
 
 function render(force = false) {
   // Bestenliste/Lehrer nicht wegreißen, wenn im Hintergrund die Lobby aktualisiert wird
-  if (!force && (currentView === 'teachers' || currentView === 'leaderboard')) return;
+  if (!force && ['teachers', 'leaderboard', 'admin'].includes(currentView)) return;
   if (!lobby) return show('home');
   if (lobby.phase === 'setup') {
     show('setup');
@@ -480,4 +597,5 @@ socket.on('connect', async () => {
 });
 
 loadTeachers();
+checkAdmin();
 show('home');

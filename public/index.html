@@ -14,6 +14,7 @@
       <button class="link" data-goto="home">Spielen</button>
       <button class="link" data-goto="leaderboard">Bestenliste</button>
       <button class="link" data-goto="teachers">Lehrer verwalten</button>
+      <button class="link" data-goto="admin" id="nav-admin">Admin</button>
     </nav>
   </header>
 
@@ -62,7 +63,7 @@
         <div class="table-wrap">
           <table class="leaderboard">
             <thead>
-              <tr><th>#</th><th>Name</th><th>Punkte</th><th title="1. Plätze">🥇</th><th>Bingos</th><th>Runden</th></tr>
+              <tr><th>#</th><th>Name</th><th>Punkte</th><th title="1. Plätze">🥇</th><th>Bingos</th><th>Runden</th><th class="admin-only"></th></tr>
             </thead>
             <tbody id="leaderboard-body"></tbody>
           </table>
@@ -71,11 +72,50 @@
       </div>
     </section>
 
+    <!-- Admin -->
+    <section id="view-admin" class="view" hidden>
+      <div class="card" id="admin-login">
+        <h2>🛡️ Admin-Login</h2>
+        <p class="muted">Das Passwort steht beim Start des Servers in der Konsole.</p>
+        <form id="form-login" class="row">
+          <input id="admin-password" type="password" placeholder="Passwort" autocomplete="current-password" required>
+          <button class="primary">Anmelden</button>
+        </form>
+      </div>
+
+      <div id="admin-panel" hidden>
+        <div class="card lobby-head">
+          <div>
+            <h2>🛡️ Du bist Admin</h2>
+            <p class="muted">Als Admin kannst du:</p>
+            <ul class="muted admin-help">
+              <li>unter <b>Lehrer verwalten</b> Lehrer und Felder löschen und Felder sperren/entsperren
+                (🔒 gesperrte Felder können nicht rausgewählt werden – neue Felder sind immer erst gesperrt),</li>
+              <li>in einer <b>Lobby</b> Felder sofort sperren, entsperren oder entfernen,</li>
+              <li>in der <b>Bestenliste</b> Einträge löschen,</li>
+              <li>hier unten Wörter sperren, die niemand mehr benutzen darf.</li>
+            </ul>
+          </div>
+          <button id="btn-logout">Abmelden</button>
+        </div>
+        <div class="card">
+          <h2>🚫 Gesperrte Wörter</h2>
+          <p class="muted">Felder, Lehrer- und Spielernamen mit diesen Wörtern werden abgelehnt.</p>
+          <form id="form-banned" class="row">
+            <input id="banned-word" type="text" maxlength="40" placeholder="Wort sperren">
+            <button class="primary">Sperren</button>
+          </form>
+          <ul id="banned-list" class="fields"></ul>
+        </div>
+      </div>
+    </section>
+
     <!-- Lehrer verwalten -->
     <section id="view-teachers" class="view" hidden>
       <div class="card">
         <h2>Lehrer verwalten</h2>
-        <p class="muted">Hier legst du Lehrer und ihre Standard-Felder an. Sie stehen dann in jeder neuen Lobby zur Verfügung.</p>
+        <p class="muted">Hier legst du Lehrer und ihre Standard-Felder an. Sie stehen dann in jeder neuen Lobby zur Verfügung.
+          Hinzufügen kann jeder; löschen und sperren nur der Admin. 🔒 = kann in der Lobby nicht rausgewählt werden.</p>
         <form id="form-teacher" class="row">
           <input id="teacher-name" maxlength="40" placeholder="Name des Lehrers" required>
           <button class="primary">Hinzufügen</button>
@@ -102,7 +142,7 @@
         <div class="card">
           <h2>Felder <span class="badge" id="field-count"></span></h2>
           <p class="muted">Füge eigene Felder hinzu. Mit 👎 stimmst du für das Entfernen –
-            ab <b id="votes-needed"></b> Stimme(n) fliegt das Feld raus.
+            ab <b id="votes-needed"></b> Stimme(n) fliegt das Feld raus. 🔒 Gesperrte Felder bleiben immer drin.
             Eigene Felder, die beim Spielstart noch drin sind, werden dauerhaft beim Lehrer gespeichert.</p>
           <form id="form-field" class="row">
             <input id="field-text" maxlength="80" placeholder="z. B. Lehrer sagt „so zu sagen“">

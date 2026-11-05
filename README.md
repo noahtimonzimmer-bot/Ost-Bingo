@@ -19,6 +19,11 @@ Bingo hat, sehen es alle.
   (Reihe, Spalte, Diagonale) und meldet es allen inklusive Platzierung.
 - **All-Time-Bestenliste** (nach Spielername): 1. Platz 5 Punkte, 2. Platz 3, 3. Platz 2,
   jedes weitere Bingo 1 Punkt. Dazu Siege, Bingos und gespielte Runden.
+- **Admin-Login**: Nur der Admin kann Lehrer und Felder löschen, Bestenliste-Einträge löschen
+  und Wörter sperren. **Hinzufügen kann immer jeder.**
+- **Gesperrte Felder 🔒**: Alle Lehrer-Felder sind anfangs gesperrt und können in der Lobby nicht
+  rausgewählt werden. Der Admin kann einzelne (oder alle) entsperren – auch live in der Lobby.
+- **Gesperrte Wörter 🚫**: Felder, Lehrer- und Spielernamen mit diesen Wörtern werden abgelehnt.
 - Man sieht nicht, welche Felder andere schon abgehakt haben – verpasst ist verpasst.
 - Host kann Spieler entfernen und eine neue Runde starten. Bei Verbindungsabbruch
   (z. B. Handy gesperrt) kommt man automatisch wieder ins gleiche Spiel.
@@ -103,14 +108,17 @@ location / {
 | Variable   | Standard  | Bedeutung                              |
 |------------|-----------|----------------------------------------|
 | `PORT`     | `3000`    | Port des Servers                       |
-| `DATA_DIR` | `./data`  | Ordner für `teachers.json` und `leaderboard.json` |
+| `DATA_DIR` | `./data`  | Ordner für `teachers.json`, `leaderboard.json` und `settings.json` |
+| `ADMIN_PASSWORD` | – | Admin-Passwort. Ohne diese Variable wird beim ersten Start eins erzeugt, in `data/settings.json` gespeichert und in der Konsole angezeigt. |
 
 ## Hinweise
 
 - Lobbys liegen nur im Arbeitsspeicher – nach einem Neustart des Servers sind laufende Spiele weg,
   Lehrer und Bestenliste bleiben erhalten.
-- Es gibt keine Anmeldung: Jeder mit Zugriff auf die Seite kann Lehrer anlegen und löschen.
-  Wenn du das einschränken willst, sichere die Seite z. B. per Passwort im Reverse-Proxy ab.
+- **Admin-Passwort**: steht beim Start in der Konsole (`Admin-Passwort: …`). Ändern kannst du es in
+  `data/settings.json` (`adminPassword`, danach neu starten) oder per Umgebungsvariable
+  `ADMIN_PASSWORD`. Nach einem Neustart muss man sich als Admin neu anmelden.
+- Lehrer anlegen und Felder hinzufügen kann jeder – Löschen nur der Admin.
 
 ## Test
 
