@@ -19,6 +19,15 @@
   </header>
 
   <main>
+    <div class="rules-banner" role="note">
+      <div class="rules-icon" aria-hidden="true">⚠️</div>
+      <div>
+        <b>Kein Platz für Respektlosigkeit.</b> Rassistische, sexistische, beleidigende oder
+        persönlich angreifende Vorschläge – gegen Lehrer oder sonst wen – werden <b>nicht geduldet</b>,
+        sofort gelöscht und können zum Ausschluss führen. Es geht um harmlose Eigenheiten
+        („sagt sozusagen“), nicht darum, jemanden lächerlich zu machen.
+      </div>
+    </div>
     <!-- Startseite -->
     <section id="view-home" class="view">
       <div class="card">
@@ -129,7 +138,9 @@
       <div class="card">
         <h2>Lehrer verwalten</h2>
         <p class="muted">Hier legst du Lehrer und ihre Standard-Felder an. Sie stehen dann in jeder neuen Lobby zur Verfügung.
-          Hinzufügen kann jeder; löschen und sperren nur der Admin. 🔒 = kann in der Lobby nicht rausgewählt werden.</p>
+          Hinzufügen kann jeder. Mit 👎 stimmst du dafür, ein Feld <b>dauerhaft zu löschen</b> – bei
+          5 Stimmen ist es weg, auch wenn es gesperrt ist. 🔒 = kann in einer Lobby nicht für die Runde rausgewählt werden.</p>
+        <p class="rules-inline">⚠️ Nur respektvolle Felder! Beleidigendes, Rassistisches oder Sexistisches wird gelöscht.</p>
         <form id="form-teacher" class="row">
           <input id="teacher-name" maxlength="40" placeholder="Name des Lehrers" required>
           <button class="primary">Hinzufügen</button>
@@ -159,6 +170,7 @@
           <p class="muted">Füge eigene Felder hinzu. Mit 👎 stimmst du für das Entfernen –
             ab <b id="votes-needed"></b> Stimme(n) fliegt das Feld raus. 🔒 Gesperrte Felder bleiben immer drin.
             Eigene Felder, die beim Spielstart noch drin sind, werden dauerhaft beim Lehrer gespeichert.</p>
+          <p class="rules-inline">⚠️ Nur respektvolle Felder! Beleidigendes, Rassistisches oder Sexistisches wird gelöscht.</p>
           <form id="form-field" class="row">
             <input id="field-text" maxlength="80" placeholder="z. B. Lehrer sagt „so zu sagen“">
             <button class="primary">Hinzufügen</button>
@@ -225,6 +237,20 @@
       </div>
     </section>
   </main>
+
+  <div id="rules-overlay" class="overlay" hidden>
+    <div class="overlay-box rules-box" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+      <h2 id="rules-title">⚠️ Bevor du mitspielst</h2>
+      <p>Dieses Bingo ist ein <b>Spaß unter Studierenden</b> über harmlose Eigenheiten in Vorlesungen.</p>
+      <ul>
+        <li>Keine rassistischen, sexistischen, beleidigenden oder persönlich angreifenden Felder.</li>
+        <li>Nichts über Aussehen, Herkunft, Religion, Gesundheit oder Privatleben von Lehrern.</li>
+        <li>Keine Screenshots öffentlich posten, Lehrer nicht bloßstellen.</li>
+        <li>Verstöße werden gelöscht und können zum Ausschluss führen.</li>
+      </ul>
+      <button id="btn-rules" class="primary big">Verstanden – ich halte mich daran</button>
+    </div>
+  </div>
 
   <div id="toast" class="toast" hidden></div>
   <div id="bingo-overlay" class="overlay" hidden>

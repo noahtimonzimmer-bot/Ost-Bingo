@@ -41,6 +41,24 @@ server.listen(0, async () => {
     assert.equal((await json('POST', `/api/teachers/${teachers[0].id}/phrases`, { text: 'Ist doof' })).status, 400);
     assert.equal((await json('POST', `/api/teachers/${teachers[0].id}/phrases`, { text: 'Neu von allen' })).status, 201);
 
+    // 5 Stimmen löschen ein (gesperrtes) Feld dauerhaft; doppelt abstimmen zählt nicht
+    const target = teachers[0].phrases[0];
+    const vote = (pid) =>
+      fetch(`${url}/api/teachers/${teachers[0].id}/phrases/${target.id}/vote`, {
+        method: 'POST',
+        headers: { 'x-player-id': pid },
+      }).then((r) => r.json());
+    await vote('voter-0000');
+    let v = await vote('voter-0000'); // zurückgezogen
+    assert.equal(v.teacher.phrases.find((p) => p.id === target.id).votes, 0);
+    for (let i = 1; i <= 4; i++) v = await vote('voter-000' + i);
+    assert.equal(v.deleted, false);
+    assert.equal(JSON.stringify(v).includes('voter-'), false, 'Spieler-IDs dürfen nicht rausgehen');
+    v = await vote('voter-0005');
+    assert.equal(v.deleted, true);
+    assert(!v.teacher.phrases.some((p) => p.id === target.id), 'Feld nicht gelöscht');
+    teachers[0].phrases.shift();
+
     const a = io(url);
     const b = io(url);
     const created = await call(a, 'create', { name: 'Anna', playerId: 'player-aaaa', teacherId: teachers[0].id, size: 3 });

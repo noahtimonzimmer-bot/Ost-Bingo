@@ -69,6 +69,7 @@ function emit(event, data = {}) {
 
 async function api(method, url, body) {
   const headers = body ? { 'Content-Type': 'application/json' } : {};
+  headers['x-player-id'] = playerId;
   if (adminToken) headers['x-admin-token'] = adminToken;
   const res = await fetch(url, {
     method,
@@ -351,7 +352,23 @@ function renderTeachers() {
           { class: 'phrases' },
           t.phrases.map((p) =>
             el('li', {},
-              el('span', {}, el('span', { class: 'lock', title: p.locked ? 'Gesperrt: kann nicht rausgewählt werden' : 'Kann in der Lobby rausgewählt werden' }, p.locked ? '🔒' : '🔓'), ' ', p.text),
+              el('span', { class: 'text' },
+                el('span', { class: 'lock', title: p.locked ? 'Gesperrt: kann in der Lobby nicht rausgewählt werden' : 'Kann in der Lobby rausgewählt werden' }, p.locked ? '🔒' : '🔓'),
+                ' ', p.text,
+                isAdmin && p.addedBy
+                  ? el('span', { class: 'author' }, `von ${p.addedBy}${p.addedAt ? ', ' + new Date(p.addedAt).toLocaleDateString('de-DE') : ''}`)
+                  : null),
+              el('button', {
+                class: 'small vote' + (p.voted ? ' on' : ''),
+                title: p.voted
+                  ? 'Stimme zurückziehen'
+                  : `Für dauerhaftes Löschen stimmen – bei ${p.votesNeeded} Stimmen ist das Feld weg`,
+                onclick: async () => {
+                  const res = await api('POST', `/api/teachers/${t.id}/phrases/${p.id}/vote`);
+                  if (res?.deleted) toast(`„${p.text}“ wurde per Abstimmung gelöscht`);
+                  if (res) loadTeachers();
+                },
+              }, `👎 ${p.votes}/${p.votesNeeded}`),
               isAdmin
                 ? el('span', { class: 'head-actions' },
                     el('button', {
@@ -377,7 +394,7 @@ function renderTeachers() {
               e.preventDefault();
               const text = input.value.trim();
               if (!text) return;
-              if (await api('POST', `/api/teachers/${t.id}/phrases`, { text })) {
+              if (await api('POST', `/api/teachers/${t.id}/phrases`, { text, name: $('#name').value.trim() })) {
                 await loadTeachers();
                 $$('#teacher-list .teacher input')[teachers.findIndex((x) => x.id === t.id)]?.focus();
               }
@@ -627,6 +644,13 @@ socket.on('connect', async () => {
     const res = await emit('join', { code: params.get('lobby'), name, playerId });
     if (res.ok) enteredLobby(res.code);
   }
+});
+
+// Regeln einmal bestätigen lassen
+if (store('bingo.rulesAccepted') !== '1') $('#rules-overlay').hidden = false;
+$('#btn-rules').addEventListener('click', () => {
+  store('bingo.rulesAccepted', '1');
+  $('#rules-overlay').hidden = true;
 });
 
 loadTeachers();

@@ -24,8 +24,13 @@ Bingo hat, sehen es alle.
   jedes weitere Bingo 1 Punkt. Dazu Siege, Bingos und gespielte Runden.
 - **Admin-Login**: Nur der Admin kann Lehrer und Felder löschen, Bestenliste-Einträge löschen
   und Wörter sperren. **Hinzufügen kann immer jeder.**
-- **Gesperrte Felder 🔒**: Alle Lehrer-Felder sind anfangs gesperrt und können in der Lobby nicht
-  rausgewählt werden. Der Admin kann einzelne (oder alle) entsperren – auch live in der Lobby.
+- **Gesperrte Felder 🔒**: Alle Lehrer-Felder sind anfangs gesperrt und können in einer Lobby nicht
+  für die Runde rausgewählt werden. Der Admin kann einzelne (oder alle) entsperren – auch live in der Lobby.
+- **Dauerhaft löschen per Abstimmung**: Unter „Lehrer verwalten“ kann jeder per 👎 dafür stimmen, ein
+  Feld beim Lehrer zu löschen. Bei 5 Stimmen (`DELETE_VOTES`) ist es weg – auch wenn es gesperrt ist.
+- **Regeln**: Fetter Hinweis auf jeder Seite und eine Bestätigung beim ersten Besuch, dass
+  beleidigende, rassistische oder sexistische Inhalte nicht geduldet werden. Der Admin sieht,
+  wer welches Feld hinzugefügt hat.
 - **Gesperrte Wörter 🚫**: Felder, Lehrer- und Spielernamen mit diesen Wörtern werden abgelehnt.
 - Man sieht nicht, welche Felder andere schon abgehakt haben – verpasst ist verpasst.
 - Host kann Spieler entfernen und eine neue Runde starten. Bei Verbindungsabbruch
@@ -112,6 +117,7 @@ location / {
 |------------|-----------|----------------------------------------|
 | `PORT`     | `3000`    | Port des Servers                       |
 | `DATA_DIR` | `./data`  | Ordner für `teachers.json`, `leaderboard.json` und `settings.json` |
+| `DELETE_VOTES` | `5` | Stimmen, ab denen ein Feld beim Lehrer dauerhaft gelöscht wird |
 | `ADMIN_PASSWORD` | – | Admin-Passwort. Ohne diese Variable wird beim ersten Start eins erzeugt, in `data/settings.json` gespeichert und in der Konsole angezeigt. |
 
 ## Hinweise

@@ -18,6 +18,8 @@ const MAX_TEXT = 80;
 const MAX_NAME = 24;
 const LOBBY_IDLE_MS = 6 * 60 * 60 * 1000; // leere Lobbys nach 6h löschen
 const ADMIN_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+/** So viele Stimmen löschen ein Feld dauerhaft beim Lehrer – egal ob gesperrt. */
+const DELETE_VOTES = Number(process.env.DELETE_VOTES) || 5;
 
 // ---------------------------------------------------------------------------
 // Lehrer (dauerhaft in data/teachers.json gespeichert)
@@ -100,6 +102,30 @@ function findTeacher(id) {
 
 function clean(text, max = MAX_TEXT) {
   return String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function newPhrase(text, addedBy) {
+  return { id: newId(), text, locked: true, addedBy: addedBy || null, addedAt: new Date().toISOString(), deleteVotes: [] };
+}
+
+/**
+ * Lehrer für die Ausgabe: Stimmen nur als Anzahl (Spieler-IDs bleiben geheim),
+ * wer etwas hinzugefügt hat, sieht nur der Admin.
+ */
+function teacherView(teacher, { playerId, admin }) {
+  return {
+    id: teacher.id,
+    name: teacher.name,
+    phrases: teacher.phrases.map((p) => ({
+      id: p.id,
+      text: p.text,
+      locked: p.locked,
+      votes: p.deleteVotes?.length ?? 0,
+      voted: !!playerId && !!p.deleteVotes?.includes(playerId),
+      votesNeeded: DELETE_VOTES,
+      ...(admin ? { addedBy: p.addedBy ?? null, addedAt: p.addedAt ?? null } : {}),
+    })),
+  };
 }
 
 function findPhrase(teacher, phraseId) {
@@ -241,7 +267,7 @@ function saveCustomFields(lobby) {
   let changed = false;
   for (const f of lobby.fields) {
     if (!f.custom || known.has(f.text.toLowerCase())) continue;
-    const phrase = { id: newId(), text: f.text, locked: true };
+    const phrase = newPhrase(f.text, f.author);
     teacher.phrases.push(phrase);
     known.add(f.text.toLowerCase());
     // ab jetzt ist es ein normales Lehrer-Feld
@@ -340,7 +366,11 @@ app.delete('/api/banned/:word', requireAdmin, (req, res) => {
   res.json(settings.bannedWords);
 });
 
-app.get('/api/teachers', (_req, res) => res.json(teachers));
+function viewer(req) {
+  return { playerId: req.get('x-player-id'), admin: isAdminToken(adminToken(req)) };
+}
+
+app.get('/api/teachers', (req, res) => res.json(teachers.map((t) => teacherView(t, viewer(req)))));
 
 app.post('/api/teachers', (req, res) => {
   const name = clean(req.body?.name, 40);
@@ -352,7 +382,7 @@ app.post('/api/teachers', (req, res) => {
   const teacher = { id: newId(), name, phrases: [] };
   teachers.push(teacher);
   saveTeachers();
-  res.status(201).json(teacher);
+  res.status(201).json(teacherView(teacher, viewer(req)));
 });
 
 app.delete('/api/teachers/:id', requireAdmin, (req, res) => {
@@ -373,9 +403,30 @@ app.post('/api/teachers/:id/phrases', (req, res) => {
   if (teacher.phrases.some((p) => p.text.toLowerCase() === text.toLowerCase())) {
     return res.status(409).json({ error: 'Gibt es schon' });
   }
-  teacher.phrases.push({ id: newId(), text, locked: true });
+  teacher.phrases.push(newPhrase(text, clean(req.body?.name, MAX_NAME)));
   saveTeachers();
-  res.status(201).json(teacher);
+  res.status(201).json(teacherView(teacher, viewer(req)));
+});
+
+// Abstimmen, ob ein Feld beim Lehrer dauerhaft verschwindet – darf jeder, auch bei gesperrten Feldern.
+app.post('/api/teachers/:id/phrases/:pid/vote', (req, res) => {
+  const teacher = findTeacher(req.params.id);
+  const phrase = findPhrase(teacher, req.params.pid);
+  const { playerId } = viewer(req);
+  if (!phrase) return res.status(404).json({ error: 'Nicht gefunden' });
+  if (typeof playerId !== 'string' || !/^[a-zA-Z0-9-]{8,64}$/.test(playerId)) {
+    return res.status(400).json({ error: 'Ungültige Spieler-ID' });
+  }
+  phrase.deleteVotes ??= [];
+  if (phrase.deleteVotes.includes(playerId)) {
+    phrase.deleteVotes = phrase.deleteVotes.filter((id) => id !== playerId);
+  } else {
+    phrase.deleteVotes.push(playerId);
+  }
+  const deleted = phrase.deleteVotes.length >= DELETE_VOTES;
+  if (deleted) teacher.phrases = teacher.phrases.filter((p) => p !== phrase);
+  saveTeachers();
+  res.json({ deleted, teacher: teacherView(teacher, viewer(req)) });
 });
 
 /** Lobbys mit diesem Lehrer neu senden, damit Schlösser sofort überall stimmen. */
@@ -394,7 +445,7 @@ app.patch('/api/teachers/:id/phrases/:pid', requireAdmin, (req, res) => {
   if (typeof req.body?.locked === 'boolean') phrase.locked = req.body.locked;
   saveTeachers();
   refreshLobbies(teacher.id);
-  res.json(teacher);
+  res.json(teacherView(teacher, viewer(req)));
 });
 
 app.post('/api/teachers/:id/lock', requireAdmin, (req, res) => {
@@ -404,7 +455,7 @@ app.post('/api/teachers/:id/lock', requireAdmin, (req, res) => {
   for (const p of teacher.phrases) p.locked = locked;
   saveTeachers();
   refreshLobbies(teacher.id);
-  res.json(teacher);
+  res.json(teacherView(teacher, viewer(req)));
 });
 
 app.delete('/api/teachers/:id/phrases/:pid', requireAdmin, (req, res) => {
@@ -412,7 +463,7 @@ app.delete('/api/teachers/:id/phrases/:pid', requireAdmin, (req, res) => {
   if (!findPhrase(teacher, req.params.pid)) return res.status(404).json({ error: 'Nicht gefunden' });
   teacher.phrases = teacher.phrases.filter((p) => p.id !== req.params.pid);
   saveTeachers();
-  res.json(teacher);
+  res.json(teacherView(teacher, viewer(req)));
 });
 
 app.get('/api/leaderboard', (_req, res) => res.json(rankedLeaderboard()));

@@ -256,3 +256,22 @@ ul.lobby-list li {
 ul.lobby-list .text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 fieldset.visibility { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; padding: 8px 12px 0; }
 fieldset.visibility legend { font-weight: 500; padding: 0 4px; }
+
+/* Regeln */
+.rules-banner {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: #fff4e5; color: #6b3a00;
+  border: 2px solid #f0a020; border-radius: var(--radius);
+  padding: 14px 16px; margin-bottom: 16px; font-size: .98rem;
+}
+.rules-icon { font-size: 1.6rem; line-height: 1; }
+.rules-inline {
+  margin: 0 0 10px; padding: 8px 12px; border-radius: 10px;
+  background: #fff4e5; color: #6b3a00; font-weight: 600; font-size: .9rem;
+}
+@media (prefers-color-scheme: dark) {
+  .rules-banner, .rules-inline { background: #3a2a10; color: #ffd9a0; border-color: #b8781a; }
+}
+.rules-box { text-align: left; max-width: 520px; }
+.rules-box ul { padding-left: 20px; }
+.rules-box li { margin-bottom: 6px; }
