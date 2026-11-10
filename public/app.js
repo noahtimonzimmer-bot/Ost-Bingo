@@ -90,6 +90,8 @@ let currentView = 'home';
 function show(view) {
   currentView = view;
   $$('.view').forEach((v) => (v.hidden = v.id !== 'view-' + view));
+  // Warnung nur dort, wo man Felder schreibt, die andere sehen
+  $('#rules-banner').hidden = !['setup', 'teachers'].includes(view);
   $$('[data-goto]').forEach((b) => b.classList.toggle('active', b.dataset.goto === view));
 }
 
@@ -278,10 +280,56 @@ $('#form-banned').addEventListener('submit', async (e) => {
   }
 });
 
+$('#form-feedback').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = $('#feedback-text').value.trim();
+  if (!text) return;
+  const name = $('#feedback-anon').checked ? '' : $('#name').value.trim();
+  if (await api('POST', '/api/feedback', { text, name })) {
+    $('#feedback-text').value = '';
+    toast('Danke! Dein Feedback ist beim Admin angekommen.');
+  }
+});
+
+function renderInbox(items) {
+  const unread = items.filter((f) => !f.read).length;
+  $('#inbox-count').textContent = unread ? `${unread} neu` : items.length;
+  $('#nav-admin').textContent = '🛡️ Admin' + (unread ? ` (${unread})` : '');
+  $('#inbox-empty').hidden = items.length > 0;
+  $('#inbox').replaceChildren(
+    ...items.map((f) =>
+      el(
+        'li',
+        { class: f.read ? 'read' : 'unread' },
+        el('div', { class: 'inbox-meta muted' },
+          `${f.name || 'Anonym'} · ${new Date(f.at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}`),
+        el('div', { class: 'inbox-text' }, f.text),
+        el('div', { class: 'head-actions' },
+          el('button', {
+            class: 'small',
+            onclick: async () => {
+              const res = await api('PATCH', `/api/feedback/${f.id}`, { read: !f.read });
+              if (res) renderInbox(res);
+            },
+          }, f.read ? 'Als ungelesen markieren' : '✓ Gelesen'),
+          el('button', {
+            class: 'small danger',
+            onclick: async () => {
+              if (!confirm('Feedback löschen?')) return;
+              const res = await api('DELETE', `/api/feedback/${f.id}`);
+              if (res) renderInbox(res);
+            },
+          }, 'Löschen'))
+      )
+    )
+  );
+}
+
 async function renderAdmin() {
   $('#admin-login').hidden = isAdmin;
   $('#admin-panel').hidden = !isAdmin;
   if (!isAdmin) return;
+  renderInbox((await api('GET', '/api/feedback')) || []);
   const words = (await api('GET', '/api/banned')) || [];
   $('#banned-list').replaceChildren(
     ...words.map((w) =>

@@ -13,6 +13,7 @@ const TEACHERS_FILE = path.join(DATA_DIR, 'teachers.json');
 const SEED_FILE = path.join(__dirname, 'seed', 'teachers.json');
 const LEADERBOARD_FILE = path.join(DATA_DIR, 'leaderboard.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
 
 const MAX_TEXT = 80;
 const MAX_NAME = 24;
@@ -316,6 +317,8 @@ function publicLobby(lobby) {
 // ---------------------------------------------------------------------------
 
 const app = express();
+// hinter Caddy/nginx auf demselben Rechner die echte Absender-IP verwenden
+app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '32kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -469,6 +472,60 @@ app.delete('/api/teachers/:id/phrases/:pid', requireAdmin, (req, res) => {
 app.get('/api/leaderboard', (_req, res) => res.json(rankedLeaderboard()));
 
 app.get('/api/lobbies', (_req, res) => res.json(openLobbies()));
+
+// ---------------------------------------------------------------------------
+// Feedback: jeder kann senden, nur der Admin liest (data/feedback.json)
+// ---------------------------------------------------------------------------
+
+let feedback = [];
+try {
+  feedback = JSON.parse(fs.readFileSync(FEEDBACK_FILE, 'utf8'));
+} catch {
+  feedback = [];
+}
+const saveFeedback = () => writeJson(FEEDBACK_FILE, feedback);
+
+// höchstens 5 Nachrichten pro Absender in 10 Minuten
+const FEEDBACK_LIMIT = 5;
+const FEEDBACK_WINDOW_MS = 10 * 60 * 1000;
+const feedbackSent = new Map();
+
+app.post('/api/feedback', (req, res) => {
+  const text = String(req.body?.text ?? '').trim().slice(0, 2000);
+  if (!text) return res.status(400).json({ error: 'Nachricht fehlt' });
+  const sender = req.ip;
+  const now = Date.now();
+  const recent = (feedbackSent.get(sender) || []).filter((t) => now - t < FEEDBACK_WINDOW_MS);
+  if (recent.length >= FEEDBACK_LIMIT) {
+    return res.status(429).json({ error: 'Zu viele Nachrichten – bitte später nochmal' });
+  }
+  feedbackSent.set(sender, [...recent, now]);
+  feedback.unshift({
+    id: newId(),
+    text,
+    name: clean(req.body?.name, MAX_NAME) || null,
+    at: new Date().toISOString(),
+    read: false,
+  });
+  saveFeedback();
+  res.status(201).json({ ok: true });
+});
+
+app.get('/api/feedback', requireAdmin, (_req, res) => res.json(feedback));
+
+app.patch('/api/feedback/:id', requireAdmin, (req, res) => {
+  const item = feedback.find((f) => f.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Nicht gefunden' });
+  if (typeof req.body?.read === 'boolean') item.read = req.body.read;
+  saveFeedback();
+  res.json(feedback);
+});
+
+app.delete('/api/feedback/:id', requireAdmin, (req, res) => {
+  feedback = feedback.filter((f) => f.id !== req.params.id);
+  saveFeedback();
+  res.json(feedback);
+});
 
 app.delete('/api/leaderboard/:name', requireAdmin, (req, res) => {
   delete leaderboard[req.params.name.toLowerCase()];

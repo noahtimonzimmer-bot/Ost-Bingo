@@ -14,12 +14,13 @@
       <button class="link" data-goto="home">Spielen</button>
       <button class="link" data-goto="leaderboard">Bestenliste</button>
       <button class="link" data-goto="teachers">Lehrer verwalten</button>
+      <button class="link" data-goto="feedback">Feedback</button>
       <button class="link" data-goto="admin" id="nav-admin">Admin</button>
     </nav>
   </header>
 
   <main>
-    <div class="rules-banner" role="note">
+    <div class="rules-banner" id="rules-banner" role="note" hidden>
       <div class="rules-icon" aria-hidden="true">⚠️</div>
       <div>
         <b>Kein Platz für Respektlosigkeit.</b> Rassistische, sexistische, beleidigende oder
@@ -95,6 +96,23 @@
       </div>
     </section>
 
+    <!-- Feedback -->
+    <section id="view-feedback" class="view" hidden>
+      <div class="card">
+        <h2>💬 Feedback</h2>
+        <p class="muted">Ideen, Fehler, Wünsche oder ein Feld, das gelöscht werden sollte? Schreib es hier –
+          die Nachricht geht nur an den Admin.</p>
+        <form id="form-feedback">
+          <label>Deine Nachricht
+            <textarea id="feedback-text" maxlength="2000" rows="6" required
+              placeholder="z. B. Bitte füge Lehrer XY hinzu / Beim Handy ist das Feld zu klein …"></textarea>
+          </label>
+          <label class="check"><input type="checkbox" id="feedback-anon"> Anonym senden (ohne meinen Namen)</label>
+          <button class="primary">Senden</button>
+        </form>
+      </div>
+    </section>
+
     <!-- Admin -->
     <section id="view-admin" class="view" hidden>
       <div class="card" id="admin-login">
@@ -116,10 +134,15 @@
                 (🔒 gesperrte Felder können nicht rausgewählt werden – neue Felder sind immer erst gesperrt),</li>
               <li>in einer <b>Lobby</b> Felder sofort sperren, entsperren oder entfernen,</li>
               <li>in der <b>Bestenliste</b> Einträge löschen,</li>
-              <li>hier unten Wörter sperren, die niemand mehr benutzen darf.</li>
+              <li>hier unten das <b>Feedback</b> lesen und Wörter sperren, die niemand mehr benutzen darf.</li>
             </ul>
           </div>
           <button id="btn-logout">Abmelden</button>
+        </div>
+        <div class="card">
+          <h2>📥 Feedback-Inbox <span class="badge" id="inbox-count">0</span></h2>
+          <ul id="inbox" class="inbox"></ul>
+          <p class="muted" id="inbox-empty">Noch kein Feedback.</p>
         </div>
         <div class="card">
           <h2>🚫 Gesperrte Wörter</h2>
@@ -140,7 +163,6 @@
         <p class="muted">Hier legst du Lehrer und ihre Standard-Felder an. Sie stehen dann in jeder neuen Lobby zur Verfügung.
           Hinzufügen kann jeder. Mit 👎 stimmst du dafür, ein Feld <b>dauerhaft zu löschen</b> – bei
           5 Stimmen ist es weg, auch wenn es gesperrt ist. 🔒 = kann in einer Lobby nicht für die Runde rausgewählt werden.</p>
-        <p class="rules-inline">⚠️ Nur respektvolle Felder! Beleidigendes, Rassistisches oder Sexistisches wird gelöscht.</p>
         <form id="form-teacher" class="row">
           <input id="teacher-name" maxlength="40" placeholder="Name des Lehrers" required>
           <button class="primary">Hinzufügen</button>
@@ -170,8 +192,7 @@
           <p class="muted">Füge eigene Felder hinzu. Mit 👎 stimmst du für das Entfernen –
             ab <b id="votes-needed"></b> Stimme(n) fliegt das Feld raus. 🔒 Gesperrte Felder bleiben immer drin.
             Eigene Felder, die beim Spielstart noch drin sind, werden dauerhaft beim Lehrer gespeichert.</p>
-          <p class="rules-inline">⚠️ Nur respektvolle Felder! Beleidigendes, Rassistisches oder Sexistisches wird gelöscht.</p>
-          <form id="form-field" class="row">
+            <form id="form-field" class="row">
             <input id="field-text" maxlength="80" placeholder="z. B. Lehrer sagt „so zu sagen“">
             <button class="primary">Hinzufügen</button>
           </form>

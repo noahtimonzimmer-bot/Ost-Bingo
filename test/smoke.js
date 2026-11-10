@@ -59,6 +59,12 @@ server.listen(0, async () => {
     assert(!v.teacher.phrases.some((p) => p.id === target.id), 'Feld nicht gelöscht');
     teachers[0].phrases.shift();
 
+    // Feedback: jeder kann senden, nur der Admin liest
+    assert.equal((await json('POST', '/api/feedback', { text: 'Tolles Spiel!', name: 'Lena' })).status, 201);
+    assert.equal((await json('GET', '/api/feedback')).status, 403);
+    const inbox = await (await json('GET', '/api/feedback', null, token)).json();
+    assert.deepEqual(inbox.map((f) => [f.text, f.name, f.read]), [['Tolles Spiel!', 'Lena', false]]);
+
     const a = io(url);
     const b = io(url);
     const created = await call(a, 'create', { name: 'Anna', playerId: 'player-aaaa', teacherId: teachers[0].id, size: 3 });
